@@ -57,22 +57,18 @@ namespace EquationSolver9001
 				Console.WriteLine("INPUT WAS WRONG.(EXPECTED: YES/NO)");
 				goto DetailException;
 			}
-			Console.WriteLine("Is the equation linear or exponential?(LINEAR/EXPONENTIAL)");
-			Console.Write("-");
-		LinearException:
 			float min = 0;
 			float max = 0;
 			float increment = 0;
 			Console.ForegroundColor = inputColor;
-			input = Console.ReadLine();
-			if (input == "LINEAR")
+			if (Eq1.isLinear && Eq2.isLinear)
 			{
 				//If its linear, only need to detect 1 starting vertext and 1 end vertex. min must be a really small value and max must be a really high value and increment must go through the entire range at once.
 				min = -10000;
 				max = 10000;
 				increment = 20000;
 			}
-			else if (input == "EXPONENTIAL")
+			else
 			{
 				Console.ForegroundColor = outputColor;
 				Console.WriteLine("input the range of checking.ie. -10,10,0.1 will check all numbers between -10 to 10 with a difference of 0.1(increments should be more than 0.01)");
@@ -84,14 +80,9 @@ namespace EquationSolver9001
 				max = float.Parse(range[1]);
 				increment = float.Parse(range[2]);
 			}
-			else
-			{
-				Console.ForegroundColor = outputColor;
-				Console.WriteLine("ERROR! Received wrong input. Expected(LINEAR/EXPONENTIAl)");
-				goto LinearException;
-			}
 
 			Console.ForegroundColor = ConsoleColor.Red;
+
 			Console.WriteLine("Press enter to solve....");
 		WrongKey:
 			ConsoleKeyInfo key = Console.ReadKey();
@@ -119,7 +110,8 @@ namespace EquationSolver9001
 			Console.ForegroundColor = outputColor;
 			if (intersections.Count == 0)
 			{
-				Console.WriteLine("No intersection found");
+				if (Eq1.isLinear && Eq2.isLinear) Console.WriteLine("Solution Does not exist");
+				else Console.WriteLine("No solution found! Possibly due to set precision");
 			}
 
 			Console.WriteLine("Do you want to try another equation?(YES/NO)");
@@ -148,6 +140,7 @@ namespace EquationSolver9001
 
 		public class Equation
 		{
+
 			public Equation(string full)
 			{
 				whole = full;
@@ -160,6 +153,7 @@ namespace EquationSolver9001
 			public string whole;
 			public string leftHandSide;
 			public float rightHandSide;
+			public bool isLinear = true;
 			public List<Variable> vars = new List<Variable>();
 			public Graph graph;
 			void GetVariables()
@@ -176,9 +170,14 @@ namespace EquationSolver9001
 						string[] operandSplit = leftHandSide.Split(operand.ToCharArray());
 
 						vars.Add(new Variable(operandSplit[0], "+"));
+						if (vars[0].exponent != 1) isLinear = false;
 						for (int i = 1; i < operandSplit.Length; i++)
 						{
+							if (operand == "*") vars[0].operand = "*";
 							vars.Add(new Variable(operandSplit[i], operand));
+							if (vars[i].exponent != 1 || vars[i].operand == "*")
+								isLinear = false;
+							
 						}
 					}
 				}
@@ -211,6 +210,15 @@ namespace EquationSolver9001
 				rightHandSide = 0;
 				vars.Clear();
 
+			}
+			public bool CheckLinear()
+			{
+				foreach (Variable variable in vars)
+				{
+					if (variable.exponent > 1 || variable.exponent < 1)
+						return false;
+				}
+				return true;
 			}
 			//WIP
 			void ShortenVars(List<Variable> variables)

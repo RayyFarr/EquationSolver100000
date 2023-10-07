@@ -14,9 +14,15 @@ namespace EquationSolver9001
 		static ConsoleColor resultColor = ConsoleColor.Yellow;
 		static int roundDigits = 5;
 		static float epsilon = 0.1f;
+		static int maxLinearCheckRange = 2000;
+		static char[] operands = new char[4];
 
 		static void Main(string[] args)
 		{
+			operands[0] = '+';
+			operands[1] = '-';
+			operands[2] = '*';
+			operands[3] = '/';
 			Console.ForegroundColor = outputColor;
 
 			Console.WriteLine("Input the first equation.(NO SPACES ALLOWED!,ONLY 2 TERMS.)");
@@ -64,9 +70,9 @@ namespace EquationSolver9001
 			if (Eq1.isLinear && Eq2.isLinear)
 			{
 				//If its linear, only need to detect 1 starting vertext and 1 end vertex. min must be a really small value and max must be a really high value and increment must go through the entire range at once.
-				min = -10000;
-				max = 10000;
-				increment = 20000;
+				min = -maxLinearCheckRange/2;
+				max = maxLinearCheckRange/2;
+				increment = maxLinearCheckRange;
 			}
 			else
 			{
@@ -98,14 +104,15 @@ namespace EquationSolver9001
 				Console.WriteLine("Second Equation's Vertices");
 				Eq2.graph.Print();
 			}
-			List<Vector> intersections = Eq1.graph.Intersects(Eq2.graph).Distinct().ToList();
-
+			List<Vector>  intersections = Eq1.graph.Intersects(Eq2.graph).ToList();
+			List<Vector> printed = new List<Vector>();
 			for (int i = 0; i < intersections.Count; i++)
 			{
+				if (VectorIntersects(printed, intersections[i])) continue;
 				Console.ForegroundColor = resultColor;
-				Console.WriteLine("Line intersection found at: (" + intersections[i].x.ToString() + "," + intersections[i].y.ToString() + ")");
+				Console.WriteLine("(" + Eq1.vars[0].name + "," + Eq2.vars[1].name + ")" + ": (" + intersections[i].x.ToString() + "," + intersections[i].y.ToString() + ")");
 				Console.WriteLine("Rounded : (" + Math.Round(intersections[i].x, 3).ToString() + "," + Math.Round(intersections[i].y, 3).ToString() + ")");
-
+				printed.Add(intersections[i]);
 			}
 			Console.ForegroundColor = outputColor;
 			if (intersections.Count == 0)
@@ -137,7 +144,21 @@ namespace EquationSolver9001
 			Console.WriteLine("Exception found press any key to turn off the program!!!");
 			Console.ReadKey();
 		}
+		public static bool VectorIntersects(List<Vector> l1, List<Vector> l2)
+		{
+			foreach (Vector v1 in l1)
+				foreach (Vector v2 in l2)
+					if (v1.x == v2.x && v1.y == v2.y) return true;
 
+			return false;
+		}
+		public static bool VectorIntersects(List<Vector> l1, Vector v2)
+		{
+			foreach (Vector v1 in l1)
+				if (v1.x == v2.x && v1.y == v2.y) return true;
+
+			return false;
+		}
 		public class Equation
 		{
 
@@ -158,32 +179,58 @@ namespace EquationSolver9001
 			public Graph graph;
 			void GetVariables()
 			{
-				string[] operands = new string[4];
-				operands[0] = "+";
-				operands[1] = "-";
-				operands[2] = "*";
-				operands[3] = "/";
-				foreach (string operand in operands)
+
+				List<string> terms = new List<string>();
+				char[] chars = leftHandSide.ToCharArray();
+				for (int i = 0; i < chars.Length; i++)
 				{
-					if (leftHandSide.Contains(operand))
+
+					if (!operands.Contains(chars[i])) continue;
+					char operand = operands.First(x => x == chars[i]);
+					int charIndex = i + 1;
+					string term = operand.ToString();
+					while (charIndex < chars.Length && !operands.Contains(chars[charIndex]))
 					{
-						string[] operandSplit = leftHandSide.Split(operand.ToCharArray());
-
-						vars.Add(new Variable(operandSplit[0], "+"));
-						if (vars[0].exponent != 1) isLinear = false;
-						for (int i = 1; i < operandSplit.Length; i++)
-						{
-							if (operand == "*") vars[0].operand = "*";
-							vars.Add(new Variable(operandSplit[i], operand));
-							if (vars[i].exponent != 1 || vars[i].operand == "*")
-								isLinear = false;
-							
-						}
+						term += chars[charIndex];
+						charIndex += 1;
 					}
+					term.Trim();
+					terms.Add(term);
 				}
-				ShortenVars(vars);
+				vars = GetVarsFromTermList(terms);
+				isLinear = CheckLinear();
 
+			}
+			List<Variable> GetVarsFromTermList(List<string> terms)
+			{
+				List<Variable> vars = new List<Variable>();
 
+				foreach (string term in terms)
+				{
+					char[] chars = term.ToCharArray();
+					int iter = 1;
+					string coefficient = "";
+					string variableName = "";
+					string exponent = "";
+					string operand = chars.First().ToString();
+			
+					while (iter < chars.Length && (char.IsDigit(chars[iter]) || chars[iter] == '.')) 
+					{ 
+						coefficient += chars[iter]; iter++; 
+					}
+					while (iter < chars.Length && char.IsLetter(chars[iter])) { variableName += chars[iter]; iter++; }
+					if (iter < chars.Length && chars[iter] == '^')
+					{
+						iter++;
+						while (iter < chars.Length && (char.IsDigit(chars[iter]) || chars[iter] == '.')) { exponent += chars[iter]; iter++; }
+					}
+					if (exponent == "") exponent = "1";
+					if (coefficient == "") coefficient = "1";
+					
+					vars.Add(new Variable(variableName, operand, float.Parse(coefficient), float.Parse(exponent)));
+
+				}
+				return vars;
 			}
 			public void SetGraph(float min, float max, float inc)
 			{
@@ -270,6 +317,13 @@ namespace EquationSolver9001
 
 
 			}
+			public Variable(string _name, string _operand, float _coefficient, float _exponent)
+			{
+				name = _name;
+				operand = _operand;
+				multiplier = _coefficient;
+				exponent = _exponent;
+			}
 		}
 		public class Graph
 		{
@@ -328,10 +382,14 @@ namespace EquationSolver9001
 						case "/":
 							break;
 					}
-					yCoefficient = (float)Math.Pow(yCoefficient, 1 / e.vars[1].exponent);
-					RHS = (float)Math.Pow(RHS, 1 / e.vars[1].exponent);
-					y = RHS / yCoefficient;
-					y = (float)Math.Round(y, roundDigits);
+					if (yCoefficient != 0)
+					{
+						yCoefficient = (float)Math.Pow(yCoefficient, 1 / e.vars[1].exponent);
+						RHS = (float)Math.Pow(RHS, 1 / e.vars[1].exponent);
+						y = RHS / yCoefficient;
+						y = (float)Math.Round(y, roundDigits);
+					}
+					else y = 0;
 					vertices.Add(new Vector(x, y));
 				}
 				for (int i = 0; i < vertices.Count - 1; i++)

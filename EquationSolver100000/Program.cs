@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Xml.Linq;
 
 namespace EquationSolver9001
 {
@@ -110,7 +111,7 @@ namespace EquationSolver9001
 			{
 				if (VectorIntersects(printed, intersections[i])) continue;
 				Console.ForegroundColor = resultColor;
-				Console.WriteLine("(" + Eq1.vars[0].name + "," + Eq2.vars[1].name + ")" + ": (" + intersections[i].x.ToString() + "," + intersections[i].y.ToString() + ")");
+				Console.WriteLine("(x,y): (" + intersections[i].x.ToString() + "," + intersections[i].y.ToString() + ")");
 				Console.WriteLine("Rounded : (" + Math.Round(intersections[i].x, 3).ToString() + "," + Math.Round(intersections[i].y, 3).ToString() + ")");
 				printed.Add(intersections[i]);
 			}
@@ -350,46 +351,44 @@ namespace EquationSolver9001
 			{
 				for (float x = min; x <= max; x += increment)
 				{
-					x = (float)Math.Round(x, roundDigits);
-					float tempX = (float)(Math.Pow(x, e.vars[0].exponent) * e.vars[0].multiplier);
-					float y = 0;
+					#region x Terms Summation
+					float xTermSum = 0;
+					List<float> xTerms = new List<float>();
+					for(int i = 0;i<e.vars.Count;i++)
+					{
+						Variable var = e.vars[i];
+						if (var.name != "x") {continue; }
+						xTerms.Add(x);
+						float xTerm = xTerms.Last();
+						xTerm = (float)Math.Pow(xTerm, var.exponent);
+						xTerm *= var.multiplier;
+						
+						switch(var.operand)
+						{
+							case "+":
+								xTermSum += xTerm;
+								break;
+							case "-":
+								xTermSum -= xTerm;
+								break;
+							case "*":
+								xTermSum *= xTerm;
+								break;
+							case "/":
+								xTermSum /= xTerm;
+								break;
+							default:
+								xTermSum += xTerm;
+								break;
+
+						}
+					}
+					#endregion
+
 					float RHS = e.rightHandSide;
-					float yCoefficient = e.vars[1].multiplier;
-					switch (e.vars[0].operand)
-					{
-						case "+":
-							RHS -= tempX;
-							break;
-						case "-":
-							RHS += tempX;
-							break;
-						case "*":
-							RHS /= tempX;
-							break;
-						case "/":
-							RHS *= tempX;
-							break;
-					}
-					switch (e.vars[1].operand)
-					{
-						case "+":
-							break;
-						case "-":
-							RHS *= -1;
-							break;
-						case "*":
-							break;
-						case "/":
-							break;
-					}
-					if (yCoefficient != 0)
-					{
-						yCoefficient = (float)Math.Pow(yCoefficient, 1 / e.vars[1].exponent);
-						RHS = (float)Math.Pow(RHS, 1 / e.vars[1].exponent);
-						y = RHS / yCoefficient;
-						y = (float)Math.Round(y, roundDigits);
-					}
-					else y = 0;
+					Variable yVar = e.vars.First(p => p.name == "y");
+					float y = (float)Math.Pow((RHS - xTermSum) /yVar.multiplier , 1/yVar.exponent);
+					
 					vertices.Add(new Vector(x, y));
 				}
 				for (int i = 0; i < vertices.Count - 1; i++)
